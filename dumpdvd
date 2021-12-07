@@ -1,0 +1,62 @@
+#!/usr/bin/python3
+
+import os, sys, math
+import argparse
+import pydvdcss
+from progress.bar import FillingCirclesBar
+
+defdrive        = "/dev/sr0"
+defchunksize    = 64
+
+#Number of 2048-byte blocks in a whole disc.  This is for a dual-layer
+# DVD, and is only used for the progress bar, so it doesn't really need 
+# to be exact.
+dvdBlocks   = 4173824
+dvdBSize    = 2048
+
+optParser = argparse.ArgumentParser(description="Rip a DVD directly to a file without re-encoding anything, and without parsing the filesystem.")
+optParser.add_argument('-c',metavar='<chunk size>',default=defchunksize,help="The number pf 2048-byte blocks to read at a time.  Default: " + str(defchunksize))
+optParser.add_argument('-i',metavar='<input device>',default=defdrive,help="Location of the DVD drive.  Default: " + defdrive)
+optParser.add_argument('output',metavar='<output file>',help='The name of the output file. (EG, /tmp/dvd.iso)')
+
+opts = optParser.parse_args()
+
+
+input = pydvdcss.DvdCss()
+input.open(opts.i)
+
+chunksize = int(opts.c)
+
+
+if os.path.isfile(opts.output):
+    print("Will not overwrite output file: " + opts.output + "\n")
+    sys.exit(1)
+
+output	= open(opts.output,"wb")
+
+print("Ripping " + opts.i + " -> " + opts.output + ":")
+bar = FillingCirclesBar("",max=dvdBlocks,suffix="%(elapsed)ds | %(eta)ds remaining")
+
+while True:
+    chunk = input.read(chunksize,input.NO_FLAGS|input.READ_DECRYPT)
+    if len(chunk) < 1:
+        break
+
+    output.write(chunk)
+    bar.next(len(chunk)/dvdBSize)
+
+bar.finish()
+print("\n")
+runtime = bar.elapsed_td.seconds
+rstr = "Finished in "
+if runtime > 60:
+    rstr += str(math.trunc(runtime/60)) + "m"
+rstr += str(runtime % 60) + "s"
+
+print(rstr + "\n")
+
+#Clean up
+input.close()
+input.dispose()
+
+
