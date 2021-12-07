@@ -1,7 +1,7 @@
 # dumpdvd
 Does a single-pass image dump of a video DVD through libdvdcss, with no filesystem manipulation or video transcoding.
 
-This is a simple script in Python 3 that will use **pydvdcss** to pull an image from a video DVD.  It's a one pass prices, and nothing in the video or filesystem in the disk is changed in the process.  If it works, the output for will be a (probably decrypted) disk image of the original disk, identical in most every possible way.
+This is a simple script in Python 3 that will use **pydvdcss** to pull an image from a video DVD.  It's a one pass process, and nothing in the video or filesystem on the disk is changed.  If it works, the output file will be a (probably decrypted) disk image of the original disk, identical in most every possible way.
 
 I wrote this quickly, because I noticed that I couldn't find a piece of software that allowed you to make a full copy of a disc, menues and all, without extracting the videos and rebuilding the UDF image separately.  Many of them seem to insist on transcoding the video somehow too.  This one doesn't.  It's rather as close as you want to get to a **dd** for DVDs.
 
