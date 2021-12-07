@@ -17,9 +17,8 @@ Just put the script somewhere in your path.  I recommend _/use/local/bin_.  You 
 
 ## Use
 
-Also simple, the simple case is:
+The simple case is:
 
 ```
 # dumpdvd output.iso
 ```
-
