@@ -14,10 +14,6 @@ defchunksize        = 64
 dvdBlocks           = 4173824
 dvdBSize            = 2048
 
-#Python doesn't know about this, but the system should.
-CDROM_DRIVE_STATUS  = 0x5326
-DISC_OK             = 4
-
 optParser = argparse.ArgumentParser(description="Rip a DVD directly to a file without re-encoding anything, and without parsing the filesystem.")
 optParser.add_argument('-c',metavar='<chunk size>',default=defchunksize,help="The number pf 2048-byte blocks to read at a time.  Default: " + str(defchunksize))
 optParser.add_argument('-i',metavar='<input device>',default=defdrive,help="Location of the DVD drive.  Default: " + defdrive)

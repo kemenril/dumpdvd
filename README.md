@@ -21,12 +21,10 @@ The simple case is:
 
 ```
 # dumpdvd /tmp/dvd.iso
+Waiting for medium on /dev/sr0....
 Ripping /dev/sr0 -> /tmp/dvd.iso:
  ◉◉◉◉◉◉◉◉◉◉◉◉◉◉◉◯◯◯◯◯◯◯◯◯◯◯◯◯◯◯◯◯ 533s | 429s remaining
-
-
 Finished in 8m53s
-
 ```
 
 Note that 100% on the progress bar is roughly at the end of a dual-layer disc, and your disk may not have that much data on it.  We never check to see if it does.
