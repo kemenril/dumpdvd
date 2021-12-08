@@ -1,18 +1,22 @@
 #!/usr/bin/python3
 
-import os, sys, math
+import os, sys, math, time
 import argparse
 import pydvdcss
 from progress.bar import FillingCirclesBar
 
-defdrive        = "/dev/sr0"
-defchunksize    = 64
+defdrive            = "/dev/sr0"
+defchunksize        = 64
 
 #Number of 2048-byte blocks in a whole disc.  This is for a dual-layer
 # DVD, and is only used for the progress bar, so it doesn't really need 
 # to be exact.
-dvdBlocks   = 4173824
-dvdBSize    = 2048
+dvdBlocks           = 4173824
+dvdBSize            = 2048
+
+#Python doesn't know about this, but the system should.
+CDROM_DRIVE_STATUS  = 0x5326
+DISC_OK             = 4
 
 optParser = argparse.ArgumentParser(description="Rip a DVD directly to a file without re-encoding anything, and without parsing the filesystem.")
 optParser.add_argument('-c',metavar='<chunk size>',default=defchunksize,help="The number pf 2048-byte blocks to read at a time.  Default: " + str(defchunksize))
@@ -21,6 +25,29 @@ optParser.add_argument('output',metavar='<output file>',help='The name of the ou
 
 opts = optParser.parse_args()
 
+#First check that the drive is there and in good order.
+#We can't use os.path.isfile here, even though the input device is a file.
+# ... because Python.
+if not os.path.exists(opts.i):
+    print("Can't find input device: " + opts.i)
+    sys.exit(1)
+
+#The right way to do this would be to use ioctls, but Python doesn't 
+#implement them properly.  It does throw OSError before it sees the disc.
+# ... so we just assume that if we can open it, it's ready.
+print("Waiting for medium on " + opts.i + ".",end='')
+sys.stdout.flush()
+while True:
+    try:
+        input = open(opts.i)
+    except OSError as e:
+        print(".",end='')
+        sys.stdout.flush()
+        time.sleep(4)
+        continue
+    break
+print()
+input.close()
 
 input = pydvdcss.DvdCss()
 input.open(opts.i)
@@ -29,7 +56,7 @@ chunksize = int(opts.c)
 
 
 if os.path.isfile(opts.output):
-    print("Will not overwrite output file: " + opts.output + "\n")
+    print("Will not overwrite output file: " + opts.output)
     sys.exit(1)
 
 output	= open(opts.output,"wb")
@@ -46,14 +73,14 @@ while True:
     bar.next(len(chunk)/dvdBSize)
 
 bar.finish()
-print("\n")
+print()
 runtime = bar.elapsed_td.seconds
 rstr = "Finished in "
 if runtime > 60:
     rstr += str(math.trunc(runtime/60)) + "m"
 rstr += str(runtime % 60) + "s"
 
-print(rstr + "\n")
+print(rstr)
 
 #Clean up
 input.close()
