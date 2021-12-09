@@ -16,6 +16,7 @@ dvdBSize            = 2048
 
 optParser = argparse.ArgumentParser(description="Rip a DVD directly to a file without re-encoding anything, and without parsing the filesystem.")
 optParser.add_argument('-c',metavar='<chunk size>',default=defchunksize,help="The number pf 2048-byte blocks to read at a time.  Default: " + str(defchunksize))
+optParser.add_argument('-n',action="store_true",help="Neglect to decrypt the data as it's read.")
 optParser.add_argument('-i',metavar='<input device>',default=defdrive,help="Location of the DVD drive.  Default: " + defdrive)
 optParser.add_argument('output',metavar='<output file>',help='The name of the output file. (EG, /tmp/dvd.iso)')
 
@@ -48,6 +49,10 @@ input.close()
 input = pydvdcss.DvdCss()
 input.open(opts.i)
 
+readflags = input.NO_FLAGS
+if not opts.n:  #Generally, decrypt as we go.
+    readflags |= input.READ_DECRYPT
+
 chunksize = int(opts.c)
 
 
@@ -61,7 +66,7 @@ print("Ripping " + opts.i + " -> " + opts.output + ":")
 bar = FillingCirclesBar("",max=dvdBlocks,suffix="%(elapsed)ds | %(eta)ds remaining")
 
 while True:
-    chunk = input.read(chunksize,input.NO_FLAGS|input.READ_DECRYPT)
+    chunk = input.read(chunksize,readflags)
     if len(chunk) < 1:
         break
 
