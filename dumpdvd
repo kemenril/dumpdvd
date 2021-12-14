@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 
-import os, sys, math, time
+import os, sys, math, time, re
 import argparse
 import pydvdcss
 from progress.bar import FillingCirclesBar
 
 defdrive            = "/dev/sr0"
 defchunksize        = 64
+defmaxtries         = 10
 
 #Number of 2048-byte blocks in a whole disc.  This is for a dual-layer
 # DVD, and is only used for the progress bar, so it doesn't really need 
@@ -16,11 +17,38 @@ dvdBSize            = 2048
 
 optParser = argparse.ArgumentParser(description="Rip a DVD directly to a file without re-encoding anything, and without parsing the filesystem.")
 optParser.add_argument('-c',metavar='<chunk size>',default=defchunksize,help="The number pf 2048-byte blocks to read at a time.  Default: " + str(defchunksize))
+optParser.add_argument('-m',metavar="<max tries>",default=defmaxtries,help="The maximum number of times to retry a block read before aborting the rip.")
+optParser.add_argument('-f',action="store_true",help="Allow overwriting output file.")
 optParser.add_argument('-n',action="store_true",help="Neglect to decrypt the data as it's read.")
+optParser.add_argument('-r',action="store_true",help="Do not rip from the beginning.  Instead, resume rip that was stopped in the middle.")
+optParser.add_argument('-x',action="store_true",help="Do nothing but the bus negotiation.  This will exit before copying any data, but will allow you to go in later with a tool like ddrescue and read data directly.")
 optParser.add_argument('-i',metavar='<input device>',default=defdrive,help="Location of the DVD drive.  Default: " + defdrive)
-optParser.add_argument('output',metavar='<output file>',help='The name of the output file. (EG, /tmp/dvd.iso)')
+optParser.add_argument('-o',metavar='<output file>',required=0,help='The name of the output file. (EG, /tmp/dvd.iso)')
+optParser.add_argument('-d',metavar='<output directory>',required=0,help='The name of the directory in which the output will be stored.  If you specify this instead of -o, the filename will be taken from the volume label of the disc.')
 
 opts = optParser.parse_args()
+
+
+#Retrieve the name of the disc from the DVD volume label, and return a
+# filename based on it
+def dvdFileName(disc):
+    disc.seek(16)
+    toc = disc.read(1)
+    name = toc[40:72].strip().decode()
+    #did = toc[0:6].strip().decode()
+
+    #No tell function is documented, though it may exist.  Instead 
+    # we'll just rely on the calling function knowing that the pointer 
+    #may need moved after this.  This is a reasonable place to leave 
+    # it, though.
+    disc.seek(0)
+    
+    #Remove characters that may cause trouble.
+    name = re.sub(r'[^a-zA-Z0-9._-]','',name)
+    name = re.sub(r'_',' ', name)   # ... but use spaces instead of _
+
+    return name.title() + ".iso"
+
 
 #First check that the drive is there and in good order.
 #We can't use os.path.isfile here, even though the input device is a file.
@@ -49,24 +77,86 @@ input.close()
 input = pydvdcss.DvdCss()
 input.open(opts.i)
 
+#By now, bus negotiation should be done.
+if opts.x:
+    print("Bus negotiation finished, but no copy requested.")
+    time.sleep(2)
+    input.close()
+    input.dispose()
+    sys.exit(0)
+else:
+    #Now we must have an output file.
+    if not (opts.o or opts.d):
+        print("You need to specify an output file or directory with the -o or -d flags.")
+        input.close()
+        input.dispose()
+        sys.exit(1)
+
+if opts.o and opts.d:
+    print("You may not specify both the directory output (-d) and file output (-o) mode in the same run.")
+    input.close()
+    input.dispose()
+    sys.exit(1)
+
+#Figure out where we're putting the data here.
+if opts.o:
+    outfile = opts.o
+else:
+    outfile = os.path.join(opts.d, dvdFileName(input))
+
+print("Writing to " + outfile)
+
+
 readflags = input.NO_FLAGS
 if not opts.n:  #Generally, decrypt as we go.
     readflags |= input.READ_DECRYPT
 
 chunksize = int(opts.c)
 
+if not opts.r:
+    outmode = "wb"
+    if os.path.isfile(outfile):
+        if not opts.f:
+            print("Will not overwrite output file: " + outfile)
+            print("Use -f if you really mean it.")
+            sys.exit(1)
+else:
+    outmode = "ab"
 
-if os.path.isfile(opts.output):
-    print("Will not overwrite output file: " + opts.output)
-    sys.exit(1)
+output	= open(outfile,outmode)
 
-output	= open(opts.output,"wb")
+print("Ripping " + opts.i + " -> " + outfile + ":")
 
-print("Ripping " + opts.i + " -> " + opts.output + ":")
+#Resume:
+if opts.r:
+    oldsize = os.path.getsize(outfile)
+    startblock = math.trunc(oldsize/dvdBSize)
+    print("Old file is " + str(oldsize) + " bytes.  Resume at block " + str(startblock))
+    input.seek(startblock)
+    output.seek(startblock*dvdBSize)
+
 bar = FillingCirclesBar("",max=dvdBlocks,suffix="%(elapsed)ds | %(eta)ds remaining")
 
 while True:
-    chunk = input.read(chunksize,readflags)
+    t = 0
+    while True:
+        try:
+            if t > opts.m:
+                print("Maximum retries reached.  Aborting.")
+                input.close()
+                input.dispose()
+                output.close()
+                sys.exit(1)
+            chunk = input.read(chunksize,readflags)
+            break
+        except Exception as e:
+            t +=1
+            print("Retrying block.  Try " + str(t))
+            if t > 1 and t%5 == 0:
+                if chunksize > 1:
+                    chunksize = math.trunc(chunksize/2)
+                    print("Chunk size reduced: " + str(chunksize))
+            continue
     if len(chunk) < 1:
         break
 

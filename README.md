@@ -20,11 +20,22 @@ Just put the script somewhere in your path.  I recommend _/use/local/bin_.  You 
 The simple case is:
 
 ```
-# dumpdvd /tmp/dvd.iso
+# dumpdvd -o /tmp/dvd.iso
 Waiting for medium on /dev/sr0....
+Writing to /tmp/dvd.iso
 Ripping /dev/sr0 -> /tmp/dvd.iso:
  ◉◉◉◉◉◉◉◉◉◉◉◉◉◉◉◯◯◯◯◯◯◯◯◯◯◯◯◯◯◯◯◯ 533s | 429s remaining
 Finished in 8m53s
 ```
+
+There are a few other things it can do:
+
+If your DVD drive won't allow access without bus authentication, the **-x** flag will attempt to do that, and then exit without ripping any data.  This will allow you to run something like _ddrescue_ on the disk.  
+
+If your rip fails because the disk is dirty, you can clean it and restart it with the **-r** flag.  That will resume near the end, without having to rip the whole data-set again.  
+
+If you specify **-d** instead of **-o** and give an output directory, the program will try to name the file based on the volume label of the DVD.  If you're lucky, this will allow you to rip disks in a bit more bulk, with less intervention.
+
+See the help for a complete list of options.
 
 Note that 100% on the progress bar is roughly at the end of a dual-layer disc, and your disk may not have that much data on it.  We never check to see if it does.
